@@ -61,6 +61,10 @@ class OrchestrationService:
     def _model_config(
         self, request: CreateTaskRequest
     ) -> tuple[str, str, str | None, str | None]:
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        openrouter_base_url = os.getenv(
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+        )
         model = (
             request.model
             or os.getenv("DEFAULT_MODEL")
@@ -68,13 +72,11 @@ class OrchestrationService:
             or "openai/gpt-4o-mini"
         )
         fallback = request.fallback_model or os.getenv("FALLBACK_MODEL")
-        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        api_key = openrouter_key or os.getenv("OPENAI_API_KEY")
         base_url = (
-            os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-            if os.getenv("OPENROUTER_API_KEY")
-            else os.getenv("OPENAI_API_BASE")
+            openrouter_base_url if openrouter_key else os.getenv("OPENAI_API_BASE")
         )
-        provider = "openrouter" if os.getenv("OPENROUTER_API_KEY") else "configured"
+        provider = "openrouter" if openrouter_key else "configured"
         return model, provider, fallback, api_key if base_url else None
 
     def _selected_skills(
@@ -156,9 +158,11 @@ class OrchestrationService:
             llm = LLM(
                 model=task.model or "openai/gpt-4o-mini",
                 api_key=SecretStr(api_key) if api_key else None,
-                base_url=os.getenv("OPENROUTER_BASE_URL")
-                if api_key and os.getenv("OPENROUTER_API_KEY")
-                else os.getenv("OPENAI_API_BASE"),
+                base_url=(
+                    os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+                    if api_key and os.getenv("OPENROUTER_API_KEY")
+                    else os.getenv("OPENAI_API_BASE")
+                ),
                 timeout=int(os.getenv("MODEL_TIMEOUT_SECONDS", "120")),
                 num_retries=int(os.getenv("MODEL_MAX_RETRIES", "2")),
             )

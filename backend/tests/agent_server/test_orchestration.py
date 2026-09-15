@@ -66,3 +66,23 @@ def test_artifact_scan_only_reports_existing_files(tmp_path: Path):
 def test_task_request_does_not_store_api_keys():
     payload = CreateTaskRequest(request="run", model="openai/test")
     assert "api_key" not in payload.model_dump()
+
+
+def test_openrouter_environment_config_is_selected_without_logging_secrets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-for-test")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
+    monkeypatch.setenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+    monkeypatch.setenv("FALLBACK_MODEL", "openai/gpt-4o-mini")
+    service = OrchestrationService(object(), tmp_path, tmp_path)
+
+    model, provider, fallback, api_key = service._model_config(
+        CreateTaskRequest(request="run")
+    )
+
+    assert model == "openai/gpt-4o-mini"
+    assert provider == "openrouter"
+    assert fallback == "openai/gpt-4o-mini"
+    assert api_key == "secret-for-test"
